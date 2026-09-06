@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  rdb:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: polyq_rdb
+    command: q db/rdb.q -p 5010
+    ports:
+      - "5010:5010"
+    volumes:
+      - ../:/app
+      - polyq_data:/data/polyQ
+
+  hdb:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: polyq_hdb
+    command: q db/hdb.q /data/polyQ/hdb -p 5012
+    ports:
+      - "5012:5012"
+    volumes:
+      - polyq_data:/data/polyQ
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: polyq_gw
+    command: q gateway/gw.q -p 5000
+    ports:
+      - "5000:5000"
+
+  adapter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: polyq_adapter
+    command: python3 adapter/polyq_ws.py --host rdb --port 5010
+    depends_on:
+      - rdb
+
+volumes:
+  polyq_data:
