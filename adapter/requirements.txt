@@ -1,0 +1,4 @@
+websocket-client>=1.6.0
+qpython>=2.0.0
+requests>=2.31.0
+ujson>=5.8.0
