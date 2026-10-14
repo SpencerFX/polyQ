@@ -1,12 +1,12 @@
 / Historic Log Replay Utility for feed backtesting
 
+/ Replays a kdb+ message log written by the RDB (records of the form
+/ (`.feed.upd; evtType; payload)). Each record is executed via -11!, which
+/ applies it against the current process - so load db/schema.q + feed code first.
 .replay.fromLog:{[logPath]
-    h: hopen logPath;
+    logPath: $[":" ~ first string logPath; logPath; hsym logPath];
     0N! "Replaying log file: ", string logPath;
-    while[not -15!h;
-        expr: -11!h;
-        / Evaluate log commands
-        @[eval; expr; {[err] 0N! "Replay error: ", err}];
-    ];
-    hclose h;
+    n: @[-11!; logPath; {[e] '"replay failed: ", e}];
+    0N! "Replayed ", string[n], " messages from ", string logPath;
+    n
  };

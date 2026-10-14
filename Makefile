@@ -9,7 +9,7 @@ setup:
 	pip install -r adapter/requirements.txt
 
 adapter:
-	$(PYTHON) adapter/polyq_ws.py --port 17000 --qport 5010
+	$(PYTHON) adapter/polyq_ws.py --host localhost --port 5010
 
 rdb:
 	$(Q) db/rdb.q -p 5010 -config config/settings.q

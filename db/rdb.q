@@ -1,14 +1,18 @@
 / Real-time Database (RDB) Server
+\l config/settings.q
 \l db/schema.q
 \l feed/parser.q
 \l feed/normalizer.q
 
-/ Command line port check
-if[not system"p"; system"p 5010"];
+/ Bind listening port from config unless one was supplied via -p
+if[not system"p"; @[system; "p ", string .config.TP_PORT; {[e] -2 "WARN: could not bind port: ", e}]];
 
 / Real-time log file setup
 .rdb.logFile:`$":rdb_log_",string[.z.D],".log";
-if[null type key .rdb.logFile; .rdb.logHandle: hopen .rdb.logFile];
+/ Initialise a valid (empty) kdb+ message log the first time, so -11! can replay it
+if[() ~ key .rdb.logFile; .rdb.logFile set ()];
+/ Append handle to the replay log
+.rdb.logHandle: @[hopen; .rdb.logFile; {[e] -2 "WARN: could not open rdb log: ",e; 0Ni}];
 
 / Universal entry point called asynchronously by Python Adapter
 .feed.upd:{[evtType; payload]
@@ -28,10 +32,14 @@ if[null type key .rdb.logFile; .rdb.logHandle: hopen .rdb.logFile];
     /.rdb.endOfDay[.z.D; `:/data/polyQ/hdb]
     0N! "Executing EOD save for date: ", string dt;
     tablesToSave: `quotes`trades`l2book`probTrack;
-    {[t; d]
-        path: .Q.par[d; t; `];
-        path set .Q.en[d] get t;
-        delete from t;
-    }[; hdbDir] each tablesToSave;
-    .Q.chk[hdbDir];
+    {[t; d; dt]
+        tbl: value t;
+        if[not count tbl; :(::)];
+        / Splayed partition path MUST end in a slash, e.g. `:hdb/2026.01.01/quotes/
+        path: hsym `$ (1 _ string d), "/", (string dt), "/", (string t), "/";
+        path set .Q.en[d] tbl;
+        @[`.; t; :; 0 # tbl];
+    }[; hdbDir; dt] each tablesToSave;
+    / Backfill any tables that had no rows today so history stays queryable
+    @[.Q.chk; hdbDir; {[e] 0N! "WARN: .Q.chk: ", e}];
  };
